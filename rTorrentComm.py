@@ -1,6 +1,7 @@
 import xmlrpc.client
 import threading
 import random
+
 from PyQt4 import QtGui, QtCore
 
 serverURL = None
@@ -54,6 +55,8 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 
 	torrentList = None
 
+	tableHeaders = ["Name", "Size", "Downloaded"]
+
 	def __init__(self):
 		super(TorrentTableModel, self).__init__()
 
@@ -67,8 +70,19 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 		return self.torrentList[0].getDataFieldCount()
 
 	def data(self, index, role):
-		return self.torrentList[index.row()].getTabularData(index.column())
+		if(role == 0):
+			return self.torrentList[index.row()].getTabularData(index.column())
 
+	'''
+	#TODO This needs to be fixed. Can't get the text I want to actually
+	#     display. But everything else is sound.
+	def headerData(self, section, orientation, role):
+		if orientation == QtCore.Qt.Horizontal:
+			print(self.tableHeaders[section])
+			return QtCore.QVariant('Test')
+		else:
+			return QtCore.QVariant(section)
+	'''
 
 class Torrent():
 
@@ -79,7 +93,7 @@ class Torrent():
 	Idealy this should be long enough to allow all the torrents
 	to initialize.
 	'''
-	initialDelay = 20
+	initialDelay = 2
 
 	'''
 	UUID is the info hash used by rTorrent to identify each torrent
@@ -101,7 +115,7 @@ class Torrent():
 	'''
 	The number of columns this can be represented as
 	'''
-	dataFields = 3
+	dataFields = 7
 
 	tableModelSignal = None
 
@@ -131,6 +145,12 @@ class Torrent():
 	'''
 	downloaded = None
 
+	uploaded = None
+
+	down_rate = None
+
+	up_rate = None
+
 	'''
 	Initializes the torrent object with the specified info hash as a
 	UUID. The torrent is self sufficient and independent.
@@ -143,6 +163,7 @@ class Torrent():
 		#Make the server request for basic information
 		self._getName()
 		self._getSize()
+
 
 		if tableModelSignal != None:
 			self.tableModelSignal = tableModelSignal
@@ -166,7 +187,21 @@ class Torrent():
 		self.size = self.server.d.size_bytes(self.uuid)
 
 	def _getDownloaded(self):
-		self.downloaded = self.server.d.down.total(self.uuid)
+		#d.down.total gives you the amount downloaded in this session,
+		#including the amount wasted
+		#self.downloaded = self.server.d.down.total(self.uuid)
+		#d.completed_bytes gives you a usable number of what we have, no
+		#wasted included
+		self.downloaded = self.server.d.completed_bytes(self.uuid)
+
+	def _getUploaded(self):
+		self.uploaded = self.server.d.up.total(self.uuid)
+
+	def _getDownRate(self):
+		self.down_rate = self.server.d.down.rate(self.uuid)
+
+	def _getUpRate(self):
+		self.up_rate = self.server.d.up.rate(self.uuid)
 
 	def getUUID(self):
 		return uuid
@@ -180,8 +215,11 @@ class Torrent():
 		#      to grab. Not all data will change depending on the torrent's
 		#      current state.
 		self._getDownloaded()
+		self._getUploaded()
+		self._getDownRate()
+		self._getUpRate()
 
-		self.printInfo()
+		#self.printInfo()
 
 		#If there is a table model associated with this torrent, AKA torrent
 		#is being shown, then signal the change.
@@ -208,13 +246,38 @@ class Torrent():
 		if index == 0:
 			return self.name
 		elif index == 1:
-			return self.size
-		else:
-			return self.downloaded
+			return self.sizeof_t(self.size)
+		elif index == 2:
+			#Calculate the completion %
+			ret = (self.downloaded / self.size) * 100
+			return "%3.1f%s" % (ret, "%")
+		elif index == 3:
+			return self.sizeof_t(self.downloaded)
+		elif index == 4:
+			return self.sizeof_t(self.uploaded)
+		elif index == 5:
+			return self.speedof_t(self.down_rate)
+		elif index == 6:
+			return self.speedof_t(self.up_rate)
 		
 
 	def printInfo(self):
-		print(self.name + '|' + str(self.size))
+		print(self.name + ' | ' + str(self.size) + ' | ' + str(self.downloaded) + ' | ' + str(self.uploaded))
+
+	#From: http://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
+	def sizeof_t(self, num):
+		for x in ['bytes','KB','MB','GB']:
+			if num < 1024.0:
+				return "%3.2f%s" % (num, x)
+			num /= 1024.0
+		return "%3.2f%s" % (num, 'TB')
+
+	def speedof_t(self, num):
+		for x in ['bytes/s','KB/s','MB/s','GB/s']:
+			if num < 1024.0:
+				return "%3.2f%s" % (num, x)
+			num /= 1024.0
+		return "%3.2f%s" % (num, 'TB')
 
 def refreshTimerChanged(newValue):
 	print(newValue)
@@ -245,3 +308,5 @@ def setServerInfo(url, username, password, flag = False):
 
 	serverURL += username + ":" + password + "@" + url
 	print(serverURL)
+
+
