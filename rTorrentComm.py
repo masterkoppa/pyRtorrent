@@ -162,12 +162,18 @@ def startServer():
 	print('Connected to: ' + server.system.hostname())
 	manager = TorrentManager()
 
+'''
+Set the server url in the format that the python library expects it.
+
+flag : Set to true if you want to use https:// instead of plain http://
+'''
 def setServerInfo(url, username, password, flag = False):
 	global serverURL
 
 	if flag:
-		serverURL = "http://"
-	else:
 		serverURL = "https://"
+	else:
+		serverURL = "http://"
 
 	serverURL += username + ":" + password + "@" + url
+	print(serverURL)
