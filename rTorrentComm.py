@@ -1,5 +1,7 @@
 import xmlrpc.client
 import threading
+import random
+from PyQt4 import QtGui, QtCore
 
 serverURL = None
 
@@ -16,7 +18,9 @@ Possible Values:
 > 0 : The time in seconds to wait
 -1  : Kill the timers, exit out
 '''
-refreshTimer = 30.0
+refreshTimer = 60.0
+
+torrentTable = None
 
 
 class TorrentManager():
@@ -28,14 +32,42 @@ class TorrentManager():
 		self.torrentInfoHash = server.download_list()
 		print("Found " + str(len(self.torrentInfoHash)) + " torrents.")
 
+		if tableModel == None:
+			tableModel = TorrentTableModel()
+
 		for uuid in self.torrentInfoHash:
 			if tableModel != None:
 				self.torrentList.append(Torrent(uuid, tableModel.layoutChanged))
 			else:
 				self.torrentList.append(Torrent(uuid))
 
-		for t in self.torrentList:
-			t.printInfo()
+		
+		if isinstance(tableModel, TorrentTableModel):
+			tableModel.setTorrentList(self.torrentList)
+
+		global torrentTable
+
+		torrentTable = tableModel
+
+
+class TorrentTableModel(QtCore.QAbstractTableModel):
+
+	torrentList = None
+
+	def __init__(self):
+		super(TorrentTableModel, self).__init__()
+
+	def setTorrentList(self, torrentList):
+		self.torrentList = torrentList
+
+	def rowCount(self, parent):
+		return len(self.torrentList)
+
+	def columnCount(self, parent):
+		return self.torrentList[0].getDataFieldCount()
+
+	def data(self, index, role):
+		return self.torrentList[index.row()].getTabularData(index.column())
 
 
 class Torrent():
@@ -65,6 +97,11 @@ class Torrent():
 	without the use of locks.
 	'''
 	server = None
+
+	'''
+	The number of columns this can be represented as
+	'''
+	dataFields = 3
 
 	tableModelSignal = None
 
@@ -161,6 +198,20 @@ class Torrent():
 			threading.Timer(refreshTimer, self.refresh).start()
 
 
+	def getDataFieldCount(self):
+		return self.dataFields
+
+	'''
+	Returns a array of data that will be shown on the table view
+	'''
+	def getTabularData(self, index):
+		if index == 0:
+			return self.name
+		elif index == 1:
+			return self.size
+		else:
+			return self.downloaded
+		
 
 	def printInfo(self):
 		print(self.name + '|' + str(self.size))
