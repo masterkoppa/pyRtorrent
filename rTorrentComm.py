@@ -16,20 +16,23 @@ Possible Values:
 > 0 : The time in seconds to wait
 -1  : Kill the timers, exit out
 '''
-refreshTimer = 5.0
+refreshTimer = 30.0
 
 
 class TorrentManager():
 	torrentInfoHash = []
 	torrentList = []
 
-	def __init__(self):
+	def __init__(self, tableModel=None):
 		print("Getting the list of torrents.")
 		self.torrentInfoHash = server.download_list()
 		print("Found " + str(len(self.torrentInfoHash)) + " torrents.")
 
 		for uuid in self.torrentInfoHash:
-			self.torrentList.append(Torrent(uuid))
+			if tableModel != None:
+				self.torrentList.append(Torrent(uuid, tableModel.layoutChanged))
+			else:
+				self.torrentList.append(Torrent(uuid))
 
 		for t in self.torrentList:
 			t.printInfo()
@@ -44,7 +47,7 @@ class Torrent():
 	Idealy this should be long enough to allow all the torrents
 	to initialize.
 	'''
-	initialDelay = 10
+	initialDelay = 20
 
 	'''
 	UUID is the info hash used by rTorrent to identify each torrent
@@ -62,6 +65,8 @@ class Torrent():
 	without the use of locks.
 	'''
 	server = None
+
+	tableModelSignal = None
 
 
 	#################################################################
@@ -93,7 +98,7 @@ class Torrent():
 	Initializes the torrent object with the specified info hash as a
 	UUID. The torrent is self sufficient and independent.
 	'''
-	def __init__(self, tUUID):
+	def __init__(self, tUUID, tableModelSignal=None):
 		self.uuid = tUUID
 		self.server = xmlrpc.client.ServerProxy(serverURL)
 		print('Generated Torrent Object with UUID: ' + tUUID)
@@ -101,6 +106,9 @@ class Torrent():
 		#Make the server request for basic information
 		self._getName()
 		self._getSize()
+
+		if tableModelSignal != None:
+			self.tableModelSignal = tableModelSignal
 
 		#Get the information that is constantly changing
 		#with a initial delay of 5 seconds
@@ -137,6 +145,13 @@ class Torrent():
 		self._getDownloaded()
 
 		self.printInfo()
+
+		#If there is a table model associated with this torrent, AKA torrent
+		#is being shown, then signal the change.
+		if self.tableModelSignal != None:
+			print("Emiting Signal!")
+			self.tableModelSignal.emit()
+
 		global refreshTimer
 
 		#Check if refresh timer is equal to -1, the kill signal
@@ -144,6 +159,8 @@ class Torrent():
 			return
 		else:
 			threading.Timer(refreshTimer, self.refresh).start()
+
+
 
 	def printInfo(self):
 		print(self.name + '|' + str(self.size))
@@ -153,14 +170,14 @@ def refreshTimerChanged(newValue):
 	global refreshTimer
 	refreshTimer = newValue
 
-def startServer():
+def startServer(tableModel=None):
 	#Initialize the server
 	global server
 	server = xmlrpc.client.ServerProxy(serverURL)
 
 	#Print a test message, the start the manager
 	print('Connected to: ' + server.system.hostname())
-	manager = TorrentManager()
+	manager = TorrentManager(tableModel)
 
 '''
 Set the server url in the format that the python library expects it.

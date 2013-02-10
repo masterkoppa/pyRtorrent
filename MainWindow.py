@@ -1,8 +1,10 @@
 import sys
-from PyQt4 import QtGui
+import rTorrentComm
+import random
+from PyQt4 import QtGui, QtCore
 
 
-class MainWindow(QtGui.QWidget):
+class LoginWindow(QtGui.QWidget):
 	
 	url = None
 	username = None
@@ -13,7 +15,7 @@ class MainWindow(QtGui.QWidget):
 	passwordEdit = None
 
 	def __init__(self):
-		super(MainWindow, self).__init__()
+		super(LoginWindow, self).__init__()
 		self.initUI()
 		
 	def initUI(self):
@@ -58,13 +60,59 @@ class MainWindow(QtGui.QWidget):
 		print(self.urlEdit.text())
 		print(self.usernameEdit.text())
 		print(self.passwordEdit.text())
-		
+
+class MainWindow(QtGui.QWidget):
+
+	def __init__(self):
+		super(MainWindow, self).__init__()
+		print("Test")
+		self.initUI()
+
+	def initUI(self):
+		table = QtGui.QTableView(self)
+		tableModel = ExampleTableModel()
+
+		tableModel.layoutChanged.connect(self.dataChanged)
+
+		table.setModel(tableModel)
+
+		table.move(50,50)
+
+		self.setGeometry(300,300,250,150)
+		self.setWindowTitle("Main")
+		self.show()
+		#Testing hardcoded values
+		rTorrentComm.setServerInfo("example", "example", "example", True)
+		rTorrentComm.startServer(tableModel)
+
+	def dataChanged(self):
+		print("DATA CHANGED!! REFRESH!")
+
+class ExampleTableModel(QtCore.QAbstractTableModel):
+
+	def __init__(self):
+		super(ExampleTableModel, self).__init__()
+
+	def rowCount(self, parent):
+		return 4
+
+	def columnCount(self, parent):
+		return 4
+
+	def data(self, index, role):
+		return str(random.randint(0,100))
+
+
+def login():
+	app = QtGui.QApplication(sys.argv)
+	login = LoginWindow()
+	app.exec_()
+
 def main():
-	
+	#login()
 	app = QtGui.QApplication(sys.argv)
 	main = MainWindow()
 	sys.exit(app.exec_())
-
 
 if __name__ == '__main__':
 	main()
