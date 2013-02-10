@@ -19,7 +19,7 @@ Possible Values:
 > 0 : The time in seconds to wait
 -1  : Kill the timers, exit out
 '''
-refreshTimer = 20.0
+refreshTimer = 5.0
 
 torrentTable = None
 
@@ -55,7 +55,7 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 
 	torrentList = None
 
-	tableHeaders = ["Name", "Size", "Downloaded"]
+	tableHeaders = ["Name", "Size", "Completed", "Downloaded", "Uploaded", "Ratio", "Down Rate", "Up Rate"]
 
 	def __init__(self):
 		super(TorrentTableModel, self).__init__()
@@ -73,16 +73,39 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 		if(role == 0):
 			return self.torrentList[index.row()].getTabularData(index.column())
 
-	'''
-	#TODO This needs to be fixed. Can't get the text I want to actually
-	#     display. But everything else is sound.
+	def sort(self, nCol, order):
+		#Order == 1, acending
+		#Order == 0, decending
+		if nCol == 0:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.name.lower())
+		elif nCol == 1:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.size)
+		elif nCol == 2:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.completion)
+		elif nCol == 3:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.downloaded)
+		elif nCol == 4:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.uploaded)
+		elif nCol == 5:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.ratio)
+		elif nCol == 6:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.down_rate)
+		elif nCol == 7:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.up_rate)
+
+		if order == 0:
+			self.torrentList.reverse()
+
+		self.layoutChanged.emit()
+
+	
 	def headerData(self, section, orientation, role):
-		if orientation == QtCore.Qt.Horizontal:
-			print(self.tableHeaders[section])
-			return QtCore.QVariant('Test')
+		#If its the horizontal header and its the display role, send it through
+		if orientation == QtCore.Qt.Horizontal and role == 0:
+			return self.tableHeaders[section]
 		else:
-			return QtCore.QVariant(section)
-	'''
+			return QtCore.QAbstractTableModel.headerData(self, section, orientation, role)
+
 
 class Torrent():
 
@@ -115,7 +138,7 @@ class Torrent():
 	'''
 	The number of columns this can be represented as
 	'''
-	dataFields = 7
+	dataFields = 8
 
 	tableModelSignal = None
 
@@ -150,6 +173,19 @@ class Torrent():
 	down_rate = None
 
 	up_rate = None
+
+
+
+
+	'''
+	Calculated Properties
+
+	These properties aren't given to us by the server, instead we do the math
+	ourselves.
+	'''
+	completion = None
+
+	ratio = None
 
 	'''
 	Initializes the torrent object with the specified info hash as a
@@ -221,10 +257,16 @@ class Torrent():
 
 		#self.printInfo()
 
+		#Calculate the completion %
+		self.completion = (self.downloaded / self.size) * 100
+
+		#Calculate the ratio
+		self.ratio = ret = self.uploaded / self.downloaded
+
 		#If there is a table model associated with this torrent, AKA torrent
 		#is being shown, then signal the change.
 		if self.tableModelSignal != None:
-			print("Emiting Signal!")
+			#print("Emiting Signal!")
 			self.tableModelSignal.emit()
 
 		global refreshTimer
@@ -248,16 +290,17 @@ class Torrent():
 		elif index == 1:
 			return self.sizeof_t(self.size)
 		elif index == 2:
-			#Calculate the completion %
-			ret = (self.downloaded / self.size) * 100
-			return "%3.1f%s" % (ret, "%")
+			#Return the raw completion value in a nice format
+			return "%3.1f%s" % (self.completion, "%")
 		elif index == 3:
 			return self.sizeof_t(self.downloaded)
 		elif index == 4:
 			return self.sizeof_t(self.uploaded)
 		elif index == 5:
-			return self.speedof_t(self.down_rate)
+			return "%.3f" % (self.ratio)
 		elif index == 6:
+			return self.speedof_t(self.down_rate)
+		elif index == 7:
 			return self.speedof_t(self.up_rate)
 		
 
@@ -275,9 +318,9 @@ class Torrent():
 	def speedof_t(self, num):
 		for x in ['bytes/s','KB/s','MB/s','GB/s']:
 			if num < 1024.0:
-				return "%3.2f%s" % (num, x)
+				return "%3.1f%s" % (num, x)
 			num /= 1024.0
-		return "%3.2f%s" % (num, 'TB')
+		return "%3.21%s" % (num, 'TB/s')
 
 def refreshTimerChanged(newValue):
 	print(newValue)

@@ -82,6 +82,8 @@ class MainWindow(QtGui.QWidget):
 
 		table.setModel(tableModel)
 		table.resizeColumnsToContents()
+		table.setSortingEnabled(True)
+		table.setSelectionBehavior(QtGui.QTableView.SelectRows)
 
 		hBox.addWidget(table)
 
@@ -123,7 +125,7 @@ def main():
 	sys.exit(app.exec_())
 
 def closeEvent():
-	print("Exiting Application")
+	print("Exiting Application, waiting on all threads to finish execution")
 	rTorrentComm.refreshTimer = -1
 
 if __name__ == '__main__':
