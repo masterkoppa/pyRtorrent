@@ -73,14 +73,19 @@ class MainWindow(QtGui.QWidget):
 		rTorrentComm.setServerInfo("example", "example", "example", True)
 		rTorrentComm.startServer()
 
+		hBox = QtGui.QHBoxLayout()
+
 		table = QtGui.QTableView(self)
 		tableModel = rTorrentComm.torrentTable
 
 		tableModel.layoutChanged.connect(self.dataChanged)
 
 		table.setModel(tableModel)
+		table.resizeColumnsToContents()
 
-		table.move(50,50)
+		hBox.addWidget(table)
+
+		self.setLayout(hBox)
 
 		self.setGeometry(300,300,250,150)
 		self.setWindowTitle("Main")
