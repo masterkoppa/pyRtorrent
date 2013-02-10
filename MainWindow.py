@@ -69,8 +69,12 @@ class MainWindow(QtGui.QWidget):
 		self.initUI()
 
 	def initUI(self):
+		# Testing hardcoded values
+		rTorrentComm.setServerInfo("example", "example", "example", True)
+		rTorrentComm.startServer()
+
 		table = QtGui.QTableView(self)
-		tableModel = ExampleTableModel()
+		tableModel = rTorrentComm.torrentTable
 
 		tableModel.layoutChanged.connect(self.dataChanged)
 
@@ -81,9 +85,7 @@ class MainWindow(QtGui.QWidget):
 		self.setGeometry(300,300,250,150)
 		self.setWindowTitle("Main")
 		self.show()
-		#Testing hardcoded values
-		rTorrentComm.setServerInfo("example", "example", "example", True)
-		rTorrentComm.startServer(tableModel)
+		
 
 	def dataChanged(self):
 		print("DATA CHANGED!! REFRESH!")
