@@ -1,17 +1,21 @@
 import xmlrpc.client
 import threading
 
+serverURL = None
 
 '''
-The rTorrent xmlrpc server
+The rTorrent xmlrpc server connection, only the manager should use this
 '''
-server = xmlrpc.client.ServerProxy('EXAMPLE SERVER')
+server = None
 
 '''
-Global lock access to the xmlrpc server
-'''
-lock = threading.Lock()
+The time that each individual torrent should wait to update its data
 
+Possible Values:
+
+> 0 : The time in seconds to wait
+-1  : Kill the timers, exit out
+'''
 refreshTimer = 5.0
 
 
@@ -29,10 +33,19 @@ class TorrentManager():
 
 		for t in self.torrentList:
 			t.printInfo()
-			threading.Timer(refreshTimer, t.refresh).start()
 
 
 class Torrent():
+
+	'''
+	The initial delay the torrent should take before starting
+	the regular update cycle.
+
+	Idealy this should be long enough to allow all the torrents
+	to initialize.
+	'''
+	initialDelay = 10
+
 	'''
 	UUID is the info hash used by rTorrent to identify each torrent
 
@@ -40,6 +53,15 @@ class Torrent():
 	change.
 	'''
 	uuid = ''
+
+	'''
+	This torrents unique server connection.
+
+	Each Torrent Object must keep its own connection to avoid any
+	concurrency issues and to speed up the process by being multi-threaded
+	without the use of locks.
+	'''
+	server = None
 
 
 	#################################################################
@@ -51,10 +73,29 @@ class Torrent():
 
 	INMUTABLE
 	'''
-	name = ''
-	size = ''
+	name = None
+
+	'''
+	Size of the torrent
+
+	INMUTABLE
+	'''
+	size = None
+
+	'''
+	The number of bytes downloaded
+
+	MUTABLE
+	'''
+	downloaded = None
+
+	'''
+	Initializes the torrent object with the specified info hash as a
+	UUID. The torrent is self sufficient and independent.
+	'''
 	def __init__(self, tUUID):
 		self.uuid = tUUID
+		self.server = xmlrpc.client.ServerProxy(serverURL)
 		print('Generated Torrent Object with UUID: ' + tUUID)
 
 		#Make the server request for basic information
@@ -62,7 +103,8 @@ class Torrent():
 		self._getSize()
 
 		#Get the information that is constantly changing
-		#self.refresh()
+		#with a initial delay of 5 seconds
+		threading.Timer(self.initialDelay, self.refresh).start()
 
 
 
@@ -73,13 +115,13 @@ class Torrent():
 	This should only be called by the constructor, a one time call.
 	'''
 	def _getName(self):
-		self.name = server.d.name(self.uuid)
+		self.name = self.server.d.name(self.uuid)
 
 	def _getSize(self):
-		self.size = server.d.size_bytes(self.uuid)
+		self.size = self.server.d.size_bytes(self.uuid)
 
 	def _getDownloaded(self):
-		self.downloaded = server.d.down.total(self.uuid)
+		self.downloaded = self.server.d.down.total(self.uuid)
 
 	def getUUID(self):
 		return uuid
@@ -88,13 +130,20 @@ class Torrent():
 	Make all the requests for data that are supposed to change over time
 	'''
 	def refresh(self):
-		lock.acquire(True)
+
+		#TODO: Make grabing changing information smart about what data
+		#      to grab. Not all data will change depending on the torrent's
+		#      current state.
 		self._getDownloaded()
-		lock.release()
 
 		self.printInfo()
 		global refreshTimer
-		threading.Timer(refreshTimer, self.refresh).start()
+
+		#Check if refresh timer is equal to -1, the kill signal
+		if(refreshTimer == -1):
+			return
+		else:
+			threading.Timer(refreshTimer, self.refresh).start()
 
 	def printInfo(self):
 		print(self.name + '|' + str(self.size))
@@ -104,10 +153,21 @@ def refreshTimerChanged(newValue):
 	global refreshTimer
 	refreshTimer = newValue
 
-def main():
-	#print(server.system.listMethods())
+def startServer():
+	#Initialize the server
+	global server
+	server = xmlrpc.client.ServerProxy(serverURL)
+
+	#Print a test message, the start the manager
 	print('Connected to: ' + server.system.hostname())
 	manager = TorrentManager()
 
-if __name__ == '__main__':
-	main()
+def setServerInfo(url, username, password, flag = False):
+	global serverURL
+
+	if flag:
+		serverURL = "http://"
+	else:
+		serverURL = "https://"
+
+	serverURL += username + ":" + password + "@" + url
