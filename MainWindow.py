@@ -113,8 +113,13 @@ def login():
 def main():
 	#login()
 	app = QtGui.QApplication(sys.argv)
+	app.aboutToQuit.connect(closeEvent)
 	main = MainWindow()
 	sys.exit(app.exec_())
+
+def closeEvent():
+	print("Exiting Application")
+	rTorrentComm.refreshTimer = -1
 
 if __name__ == '__main__':
 	main()

@@ -18,7 +18,7 @@ Possible Values:
 > 0 : The time in seconds to wait
 -1  : Kill the timers, exit out
 '''
-refreshTimer = 60.0
+refreshTimer = 20.0
 
 torrentTable = None
 
