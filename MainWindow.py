@@ -84,18 +84,43 @@ class MainWindow(QtGui.QWidget):
 		table.resizeColumnsToContents()
 		table.setSortingEnabled(True)
 		table.setSelectionBehavior(QtGui.QTableView.SelectRows)
+		table.setItemDelegate(ProgressBarTableViewDelegate())
 
 		hBox.addWidget(table)
 
 		self.setLayout(hBox)
 
-		self.setGeometry(300,300,250,150)
+		self.setGeometry(300,300,800,600)
 		self.setWindowTitle("Main")
 		self.show()
 		
 
 	def dataChanged(self):
 		print("DATA CHANGED!! REFRESH!")
+
+
+class ProgressBarTableViewDelegate(QtGui.QStyledItemDelegate):
+
+	def paint(self, painter, option, index):
+		self.initStyleOption(option, index)
+		if index.column() == 2:
+			progressBar = QtGui.QStyleOptionProgressBar()
+			progressBar.state = QtGui.QStyle.State_Enabled
+			progressBar.direction = QtGui.QApplication.layoutDirection()
+			progressBar.rect = option.rect
+			progressBar.fontMetrics = QtGui.QApplication.fontMetrics()
+			progressBar.minimum = 0
+			progressBar.maximum = 100
+			progressBar.textAlignment = QtCore.Qt.AlignCenter
+			progressBar.textVisible = True
+
+			progressBar.progress = index.data()
+			progressBar.text = "%3.1f%s" % (index.data(), "%")
+
+			QtGui.QApplication.style().drawControl(QtGui.QStyle.CE_ProgressBar, progressBar, painter)
+
+		else:
+			super(ProgressBarTableViewDelegate, self).paint(painter, option, index)
 
 class ExampleTableModel(QtCore.QAbstractTableModel):
 

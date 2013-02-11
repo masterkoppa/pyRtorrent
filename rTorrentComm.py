@@ -21,6 +21,13 @@ Possible Values:
 '''
 refreshTimer = 5.0
 
+'''
+The table model that the GUI will use
+
+Since the table model needs to be instanciated and controlled by
+the torrent manager then it's stored here initially where after the init
+process gets assigned to the table in the GUI
+'''
 torrentTable = None
 
 
@@ -50,10 +57,71 @@ class TorrentManager():
 
 		torrentTable = tableModel
 
+		self.monitor()
+
+	def monitor(self):
+		tmp_list = server.download_list()
+
+		if tmp_list != self.torrentInfoHash:
+			#Something changed, lets fix the problem
+			self.fixState(tmp_list)
+			print("Something changed... Fixing the model")
+
+		#Check if refresh timer is equal to -1, the kill signal
+		if(refreshTimer == -1):
+			return
+		else:
+			threading.Timer(refreshTimer, self.monitor).start()
+
+	'''
+	Fix our internal model to adjust for changes:
+
+	Here is what we care about: Adding or Removing a Torrent
+
+	Adding: 	If a new torrent is added we want to add it to our
+				list and start the torrent refresh cycle
+
+	Removing:	If a torrent is removed then we simply want to remove
+				the torrent from our model. The Torrent object will
+				die on its own to be garbage collected latter.
+	'''
+	def fixState(self, newList):
+		#Adding new torrents
+		for infoHash in newList:
+			#If the torrent is new
+			if self.torrentInfoHash.count(infoHash) == 0:
+				self.torrentList.append(Torrent(infoHash))
+
+		#Removing old ones
+		for infoHash in self.torrentInfoHash:
+			#If the torrent is not in the new list, it was removed
+			if newList.count(infoHash) == 0:
+				tmpObj = None
+				for torrent in self.torrentList:
+					if torrent.uuid == infoHash:
+						tmpObj = torrent
+				self.torrentList.remove(tmpObj)
+
+		self.torrentInfoHash = newList
+		torrentTable.setTorrentList(self.torrentList)
+		#Refresh the list and resort it with the new data
+		torrentTable.resort()
+		print("Model has been updated")
+
+
+
+		
+
+
+
+
+
 
 class TorrentTableModel(QtCore.QAbstractTableModel):
 
 	torrentList = None
+	nColSort = 0
+	orderingSort = 1
 
 	tableHeaders = ["Name", "Size", "Completed", "Downloaded", "Uploaded", "Ratio", "Down Rate", "Up Rate"]
 
@@ -74,6 +142,8 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 			return self.torrentList[index.row()].getTabularData(index.column())
 
 	def sort(self, nCol, order):
+		self.nColSort = nCol
+		self.orderingSort = order
 		#Order == 1, acending
 		#Order == 0, decending
 		if nCol == 0:
@@ -98,13 +168,16 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 
 		self.layoutChanged.emit()
 
-	
+
 	def headerData(self, section, orientation, role):
 		#If its the horizontal header and its the display role, send it through
 		if orientation == QtCore.Qt.Horizontal and role == 0:
 			return self.tableHeaders[section]
 		else:
 			return QtCore.QAbstractTableModel.headerData(self, section, orientation, role)
+
+	def resort(self):
+		self.sort(self.nColSort, self.orderingSort)
 
 
 class Torrent():
@@ -247,14 +320,19 @@ class Torrent():
 	'''
 	def refresh(self):
 
-		#TODO: Make grabing changing information smart about what data
-		#      to grab. Not all data will change depending on the torrent's
-		#      current state.
-		self._getDownloaded()
-		self._getUploaded()
-		self._getDownRate()
-		self._getUpRate()
-
+		try:
+			#TODO: Make grabing changing information smart about what data
+			#      to grab. Not all data will change depending on the torrent's
+			#      current state.
+			self._getDownloaded()
+			self._getUploaded()
+			self._getDownRate()
+			self._getUpRate()
+		except Exception:
+			#Die on exception
+			print(self.name + " torrent found a exception while refreshing.")
+			print("Assuming torrent was removed, moving on...")
+			return
 		#self.printInfo()
 
 		#Calculate the completion %
@@ -269,10 +347,11 @@ class Torrent():
 			#print("Emiting Signal!")
 			self.tableModelSignal.emit()
 
-		global refreshTimer
+		#global refreshTimer
 
 		#Check if refresh timer is equal to -1, the kill signal
 		if(refreshTimer == -1):
+			print("Killing off Torrent: " + self.name)
 			return
 		else:
 			threading.Timer(refreshTimer, self.refresh).start()
@@ -291,7 +370,8 @@ class Torrent():
 			return self.sizeof_t(self.size)
 		elif index == 2:
 			#Return the raw completion value in a nice format
-			return "%3.1f%s" % (self.completion, "%")
+			#return "%3.1f%s" % (self.completion, "%")
+			return self.completion
 		elif index == 3:
 			return self.sizeof_t(self.downloaded)
 		elif index == 4:
