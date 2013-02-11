@@ -339,7 +339,10 @@ class Torrent():
 		self.completion = (self.downloaded / self.size) * 100
 
 		#Calculate the ratio
-		self.ratio = ret = self.uploaded / self.downloaded
+		if self.downloaded != 0:
+			self.ratio = self.uploaded / self.downloaded
+		else:
+			self.ratio = 0
 
 		#If there is a table model associated with this torrent, AKA torrent
 		#is being shown, then signal the change.
