@@ -1,6 +1,7 @@
 import xmlrpc.client
 import threading
 import random
+import urllib.parse
 
 from PyQt4 import QtGui, QtCore
 
@@ -67,11 +68,13 @@ class TorrentManager():
 			self.fixState(tmp_list)
 			print("Something changed... Fixing the model")
 
-		#Check if refresh timer is equal to -1, the kill signal
+		# Check if refresh timer is equal to -1, the kill signal
 		if(refreshTimer == -1):
 			return
 		else:
-			threading.Timer(refreshTimer, self.monitor).start()
+			# Schedule the next check. For performance reasons 
+			# make it refreshTimer x 2
+			threading.Timer((refreshTimer * 2), self.monitor).start()
 
 	'''
 	Fix our internal model to adjust for changes:
@@ -123,7 +126,7 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 	nColSort = 0
 	orderingSort = 1
 
-	tableHeaders = ["Name", "Size", "Completed", "Downloaded", "Uploaded", "Ratio", "Down Rate", "Up Rate"]
+	tableHeaders = ["Name", "Size", "Completed", "Downloaded", "Uploaded", "Ratio", "Down Rate", "Up Rate", "Label"]
 
 	def __init__(self):
 		super(TorrentTableModel, self).__init__()
@@ -162,6 +165,8 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.down_rate)
 		elif nCol == 7:
 			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.up_rate)
+		elif nCol == 8:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.label)
 
 		if order == 0:
 			self.torrentList.reverse()
@@ -211,7 +216,7 @@ class Torrent():
 	'''
 	The number of columns this can be represented as
 	'''
-	dataFields = 8
+	dataFields = 9
 
 	tableModelSignal = None
 
@@ -275,6 +280,8 @@ class Torrent():
 	completion = None
 
 	ratio = None
+	
+	label = None
 
 	'''
 	Initializes the torrent object with the specified info hash as a
@@ -347,6 +354,24 @@ class Torrent():
 		
 	def _getTrackerCount(self):
 		self.tracker_count = self.server.d.tracker_size(self.uuid)
+	
+	'''
+	Retrieve the torrent comment, not sure if it works yet...
+	'''
+	def _getMessage(self):
+		self.comment = self.server.d.get_message(self.uuid)
+	
+	
+	def _getLabel(self):
+		self.label = self.server.d.get_custom1(self.uuid)#Might not work everywhere
+		self.label = urllib.parse.unquote(self.label)
+	
+	def _getPriority(self):
+		print("NOT IMPLEMENTED!")
+		#Priority = 3 : High Priority
+		#Priority = 2 : Normal Priority
+		#Priority = 1 : Low Priority
+		#Priority = 0 : Off Priority
 
 	def getUUID(self):
 		return uuid
@@ -355,7 +380,7 @@ class Torrent():
 	Make all the requests for data that are supposed to change over time
 	'''
 	def refresh(self):
-
+		self._getLabel()
 		try:
 			#TODO: Make grabing changing information smart about what data
 			#      to grab. Not all data will change depending on the torrent's
@@ -365,6 +390,8 @@ class Torrent():
 			self._getDownRate()
 			self._getUpRate()
 			self._getPeersConnected()
+			self._getMessage()
+			
 			
 		except Exception:
 			#Die on exception
@@ -423,10 +450,12 @@ class Torrent():
 			return self.speedof_t(self.down_rate)
 		elif index == 7:
 			return self.speedof_t(self.up_rate)
+		elif index == 8:
+			return self.label
 		
 
 	def printInfo(self):
-		print(self.name + ' | ' + str(self.peer) )
+		print(self.name + ' | ' + str(self.comment) )
 
 	#From: http://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
 	def sizeof_t(self, num):
