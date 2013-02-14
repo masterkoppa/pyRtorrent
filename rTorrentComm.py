@@ -247,8 +247,24 @@ class Torrent():
 
 	up_rate = None
 
+	'''
+	The number of peers(ppl not 100% done) are available.
+	
+	MUTABLE
+	'''
+	peer_count = None
 
-
+	'''
+	The number of peers(ppl not 100% done) are connected.
+	
+	MUTABLE
+	'''
+	peer_conn = None
+	
+	
+	seed_count = None
+	
+	seed_conn = None
 
 	'''
 	Calculated Properties
@@ -311,6 +327,26 @@ class Torrent():
 
 	def _getUpRate(self):
 		self.up_rate = self.server.d.up.rate(self.uuid)
+	
+	'''
+	This gets the number that is to the left of the number in paretheses
+	in ruTorrent.
+	'''
+	def _getPeersConnected(self):
+		#Both of these seem to work just fine, needs more investigation
+		self.peer_conn = self.server.d.get_peers_accounted(self.uuid)
+		#OR
+		#self.peer_conn = self.server.d.get_peers_connected(self.uuid)
+	
+	'''
+	Like _getPeersConnected this will give you the number on the seeds column to the
+	left of the number in paretheses.
+	'''
+	def _getSeedsConnected(self):
+		self.seed_conn = self.server.d.get_peers_complete(self.uuid)
+		
+	def _getTrackerCount(self):
+		self.tracker_count = self.server.d.tracker_size(self.uuid)
 
 	def getUUID(self):
 		return uuid
@@ -328,12 +364,14 @@ class Torrent():
 			self._getUploaded()
 			self._getDownRate()
 			self._getUpRate()
+			self._getPeersConnected()
+			
 		except Exception:
 			#Die on exception
 			print(self.name + " torrent found a exception while refreshing.")
 			print("Assuming torrent was removed, moving on...")
 			return
-		#self.printInfo()
+		self.printInfo()
 
 		#Calculate the completion %
 		self.completion = (self.downloaded / self.size) * 100
@@ -388,7 +426,7 @@ class Torrent():
 		
 
 	def printInfo(self):
-		print(self.name + ' | ' + str(self.size) + ' | ' + str(self.downloaded) + ' | ' + str(self.uploaded))
+		print(self.name + ' | ' + str(self.peer) )
 
 	#From: http://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
 	def sizeof_t(self, num):
