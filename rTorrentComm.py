@@ -126,10 +126,14 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 	nColSort = 0
 	orderingSort = 1
 
-	tableHeaders = ["Name", "Size", "Completed", "Downloaded", "Uploaded", "Ratio", "Down Rate", "Up Rate", "Label"]
+	tableHeaders = ["Name", "Size", "Completed", "Downloaded", "Uploaded", "Ratio", "Down Rate", "Up Rate", "Label", "Priority"]
 
 	def __init__(self):
 		super(TorrentTableModel, self).__init__()
+
+		# Since we can't guarantee all the data changes all the time
+		# we should resort every time we recieve a change in data.
+		self.layoutChanged.connect(self.resort)
 
 	def setTorrentList(self, torrentList):
 		self.torrentList = torrentList
@@ -147,8 +151,7 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 	def sort(self, nCol, order):
 		self.nColSort = nCol
 		self.orderingSort = order
-		#Order == 1, acending
-		#Order == 0, decending
+		
 		if nCol == 0:
 			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.name.lower())
 		elif nCol == 1:
@@ -167,7 +170,11 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.up_rate)
 		elif nCol == 8:
 			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.label)
+		elif nCol == 9:
+			self.torrentList = sorted(self.torrentList, key=lambda torrent: torrent.priority)
 
+		#Order == 1, acending
+		#Order == 0, decending
 		if order == 0:
 			self.torrentList.reverse()
 
@@ -186,16 +193,6 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 
 
 class Torrent():
-
-	'''
-	The initial delay the torrent should take before starting
-	the regular update cycle.
-
-	Idealy this should be long enough to allow all the torrents
-	to initialize.
-	'''
-	initialDelay = 2
-
 	'''
 	UUID is the info hash used by rTorrent to identify each torrent
 
@@ -213,12 +210,28 @@ class Torrent():
 	'''
 	server = None
 
+	tableModelSignal = None
+
+
+	#################################################################
+	#                        Torrent Constants                      #
+	#################################################################
+
+	torrentPriority = {1 : "Low", 2: "Normal", 3: "High", 0: "Off"}
+
 	'''
 	The number of columns this can be represented as
 	'''
-	dataFields = 9
+	dataFields = 10
 
-	tableModelSignal = None
+	'''
+	The initial delay the torrent should take before starting
+	the regular update cycle.
+
+	Idealy this should be long enough to allow all the torrents
+	to initialize.
+	'''
+	initialDelay = 2
 
 
 	#################################################################
@@ -282,6 +295,8 @@ class Torrent():
 	ratio = None
 	
 	label = None
+
+	priority = None
 
 	'''
 	Initializes the torrent object with the specified info hash as a
@@ -367,7 +382,8 @@ class Torrent():
 		self.label = urllib.parse.unquote(self.label)
 	
 	def _getPriority(self):
-		print("NOT IMPLEMENTED!")
+		#print("NOT IMPLEMENTED!")
+		self.priority = self.server.d.get_priority(self.uuid)
 		#Priority = 3 : High Priority
 		#Priority = 2 : Normal Priority
 		#Priority = 1 : Low Priority
@@ -380,7 +396,7 @@ class Torrent():
 	Make all the requests for data that are supposed to change over time
 	'''
 	def refresh(self):
-		self._getLabel()
+		
 		try:
 			#TODO: Make grabing changing information smart about what data
 			#      to grab. Not all data will change depending on the torrent's
@@ -391,6 +407,8 @@ class Torrent():
 			self._getUpRate()
 			self._getPeersConnected()
 			self._getMessage()
+			self._getLabel()
+			self._getPriority()
 			
 			
 		except Exception:
@@ -398,7 +416,8 @@ class Torrent():
 			print(self.name + " torrent found a exception while refreshing.")
 			print("Assuming torrent was removed, moving on...")
 			return
-		self.printInfo()
+		#For Debug Purposes Only
+		#self.printInfo()
 
 		#Calculate the completion %
 		self.completion = (self.downloaded / self.size) * 100
@@ -452,6 +471,8 @@ class Torrent():
 			return self.speedof_t(self.up_rate)
 		elif index == 8:
 			return self.label
+		elif index == 9:
+			return self.torrentPriority[self.priority]
 		
 
 	def printInfo(self):
