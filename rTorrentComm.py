@@ -31,6 +31,13 @@ process gets assigned to the table in the GUI
 '''
 torrentTable = None
 
+'''
+A special model that will store the current torrent's information
+
+This model should be initialized in TorrentManager.__init__
+'''
+infoPanelModel = None
+
 
 class TorrentManager():
 	torrentInfoHash = []
@@ -57,6 +64,10 @@ class TorrentManager():
 		global torrentTable
 
 		torrentTable = tableModel
+
+		global infoPanelModel
+
+		infoPanelModel = TorrentInformationModel()
 
 		self.monitor()
 
@@ -111,6 +122,29 @@ class TorrentManager():
 		torrentTable.resort()
 		print("Model has been updated")
 
+
+class TorrentInformationModel():
+
+	#The selected row will allways start at 0
+	currentRow = 0
+	torrent = None
+
+	def __init__(self):
+		print("Initialing Information Panel Model")
+		self.changeActiveRow(0)
+
+	def changeActiveRow(self, newRow):
+		self.currentRow = newRow
+		self.torrent = torrentTable.torrentList[newRow]
+
+	def getName(self):
+		return self.torrent.name
+
+	def getDownloaded(self):
+		return "0.00 GB"
+
+	def getUploaded(self):
+		return "0.00 GB"
 
 
 		
@@ -480,18 +514,18 @@ class Torrent():
 
 	#From: http://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
 	def sizeof_t(self, num):
-		for x in ['bytes','KB','MB','GB']:
+		for x in [' bytes',' KB',' MB',' GB']:
 			if num < 1024.0:
 				return "%3.2f%s" % (num, x)
 			num /= 1024.0
-		return "%3.2f%s" % (num, 'TB')
+		return "%3.2f%s" % (num, ' TB')
 
 	def speedof_t(self, num):
-		for x in ['bytes/s','KB/s','MB/s','GB/s']:
+		for x in [' bytes/s',' KB/s',' MB/s',' GB/s']:
 			if num < 1024.0:
 				return "%3.1f%s" % (num, x)
 			num /= 1024.0
-		return "%3.21%s" % (num, 'TB/s')
+		return "%3.21%s" % (num, ' TB/s')
 
 def refreshTimerChanged(newValue):
 	print(newValue)

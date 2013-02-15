@@ -63,6 +63,8 @@ class LoginWindow(QtGui.QWidget):
 
 class MainWindow(QtGui.QWidget):
 
+	infoPanel = None
+
 	def __init__(self):
 		super(MainWindow, self).__init__()
 		print("Test")
@@ -75,10 +77,22 @@ class MainWindow(QtGui.QWidget):
 
 		hBox = QtGui.QHBoxLayout()
 
+		#Set up the splitter to hold the window
+		splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+
+		#Set up the information panel
+		self.infoPanel = InfoPanelView(rTorrentComm.infoPanelModel, self)
+		self.infoPanel.setFrameShape(QtGui.QFrame.StyledPanel)
+
+
+		#Set up the table
 		table = QtGui.QTableView(self)
 		tableModel = rTorrentComm.torrentTable
 
-		tableModel.layoutChanged.connect(self.dataChanged)
+		
+
+		#For Debug Purposes Only
+		#tableModel.layoutChanged.connect(self.dataChanged)
 
 		table.setModel(tableModel)
 		table.resizeColumnsToContents()
@@ -86,7 +100,13 @@ class MainWindow(QtGui.QWidget):
 		table.setSelectionBehavior(QtGui.QTableView.SelectRows)
 		table.setItemDelegate(ProgressBarTableViewDelegate())
 
-		hBox.addWidget(table)
+		table.selectionModel().currentRowChanged.connect(self.selectionChanged)
+
+		#Add items to the splitter
+		splitter.addWidget(table)
+		splitter.addWidget(self.infoPanel)
+
+		hBox.addWidget(splitter)
 
 		self.setLayout(hBox)
 
@@ -97,6 +117,50 @@ class MainWindow(QtGui.QWidget):
 
 	def dataChanged(self):
 		print("DATA CHANGED!! REFRESH!")
+
+	def selectionChanged(self, current, previous):
+		print("Row changed")
+		print("New Row: " + str(current.row()))
+		self.infoPanel.update(current.row())
+
+
+class InfoPanelView(QtGui.QFrame):
+
+	infoPanelModel = None
+	
+	grid = None
+
+	nameLabel = None
+
+	def __init__(self, infoPanel, parent=None):
+		super(InfoPanelView, self).__init__(parent)
+		self.grid = QtGui.QGridLayout()
+
+		self.infoPanelModel = infoPanel
+
+		#Add the labels
+		self.grid.addWidget(QtGui.QLabel('Name'), 0, 0)
+		self.grid.addWidget(QtGui.QLabel('Downloaded'), 1, 0)
+		self.grid.addWidget(QtGui.QLabel('Uploaded'), 1, 3)
+
+		self.nameLabel = QtGui.QLabel('')
+		self.grid.addWidget(self.nameLabel, 0, 1, 1, 3)
+
+
+		#Set the variable data
+		self._drawVariableGrids()
+
+		#Set the layout
+		self.setLayout(self.grid)
+
+	def update(self, newRow):
+		self.infoPanelModel.changeActiveRow(newRow)
+		self._drawVariableGrids()
+
+	def _drawVariableGrids(self):
+
+		name = self.infoPanelModel.getName()
+		self.nameLabel.setText(name)
 
 
 class ProgressBarTableViewDelegate(QtGui.QStyledItemDelegate):
