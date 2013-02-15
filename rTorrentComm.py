@@ -133,7 +133,7 @@ class TorrentTableModel(QtCore.QAbstractTableModel):
 
 		# Since we can't guarantee all the data changes all the time
 		# we should resort every time we recieve a change in data.
-		self.layoutChanged.connect(self.resort)
+		#self.layoutChanged.connect(self.resort)
 
 	def setTorrentList(self, torrentList):
 		self.torrentList = torrentList
