@@ -38,9 +38,28 @@ This model should be initialized in TorrentManager.__init__
 '''
 infoPanelModel = None
 
+'''
+The Torrent Manager
 
+This class makes the first communication with the server and retrieves
+the initial list of torrents. Then sets each torrent in motion.
+
+Aditionally it is a watchdog for changes that happen on the server side
+outside of the individual torrent's scope. For example: Adding and Removing
+Torrents from the internal model.
+'''
 class TorrentManager():
+	'''
+	The current list of hashes from the information we get from the server
+	this is used for comparison since we assume no 2 torrents will contain
+	the same hash.
+	'''
 	torrentInfoHash = []
+
+	'''
+	The list of torrent objects. Each torrent should co-relate to a 
+	info hash in the torrentInfoHash list.
+	'''
 	torrentList = []
 
 	def __init__(self, tableModel=None):
@@ -48,27 +67,32 @@ class TorrentManager():
 		self.torrentInfoHash = server.download_list()
 		print("Found " + str(len(self.torrentInfoHash)) + " torrents.")
 
+		# If no model is passed in create one
 		if tableModel == None:
 			tableModel = TorrentTableModel()
 
+		# Iterate through the list of hashes creating new torrent objects.
+		# On init, they will gather the required info and spawn off.
 		for uuid in self.torrentInfoHash:
-			if tableModel != None:
-				self.torrentList.append(Torrent(uuid, tableModel.layoutChanged))
-			else:
-				self.torrentList.append(Torrent(uuid))
+			self.torrentList.append(Torrent(uuid, tableModel.layoutChanged))
+			
 
-		
+		#Make sure we have the correct object if the model was passed in
 		if isinstance(tableModel, TorrentTableModel):
 			tableModel.setTorrentList(self.torrentList)
 
+		# Set the reference for table model so the GUI can grab it,
+		# it the model was created here
 		global torrentTable
 
 		torrentTable = tableModel
 
+		# Set the reference for the information panel model.
 		global infoPanelModel
 
 		infoPanelModel = TorrentInformationModel()
 
+		# Start the watchdogss
 		self.monitor()
 
 	def monitor(self):
@@ -141,10 +165,10 @@ class TorrentInformationModel():
 		return self.torrent.name
 
 	def getDownloaded(self):
-		return "0.00 GB"
+		return self.torrent.sizeof_t(self.torrent.downloaded)
 
 	def getUploaded(self):
-		return "0.00 GB"
+		return self.torrent.sizeof_t(self.torrent.uploaded)
 
 
 		

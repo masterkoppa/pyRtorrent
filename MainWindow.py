@@ -131,6 +131,8 @@ class InfoPanelView(QtGui.QFrame):
 	grid = None
 
 	nameLabel = None
+	downloadedLabel = None
+	uploadedLabel = None
 
 	def __init__(self, infoPanel, parent=None):
 		super(InfoPanelView, self).__init__(parent)
@@ -138,31 +140,53 @@ class InfoPanelView(QtGui.QFrame):
 
 		self.infoPanelModel = infoPanel
 
-		#Add the labels
+		# Add the labels
 		self.grid.addWidget(QtGui.QLabel('Name'), 0, 0)
 		self.grid.addWidget(QtGui.QLabel('Downloaded'), 1, 0)
 		self.grid.addWidget(QtGui.QLabel('Uploaded'), 1, 3)
 
+		# Add the empy labels for the variable data
+		# and store them localy
 		self.nameLabel = QtGui.QLabel('')
 		self.grid.addWidget(self.nameLabel, 0, 1, 1, 3)
 
+		self.downloadedLabel = QtGui.QLabel('')
+		self.grid.addWidget(self.downloadedLabel, 1, 1)
 
-		#Set the variable data
+		self.uploadedLabel = QtGui.QLabel('')
+		self.grid.addWidget(self.uploadedLabel, 1, 4)
+
+
+		# Set the variable data label
 		self._drawVariableGrids()
 
-		#Set the layout
+		# Set the layout
 		self.setLayout(self.grid)
 
 	def update(self, newRow):
 		self.infoPanelModel.changeActiveRow(newRow)
 		self._drawVariableGrids()
 
+	'''
+	Set the text for the QLabel objects that represent the data
+	'''
 	def _drawVariableGrids(self):
 
 		name = self.infoPanelModel.getName()
 		self.nameLabel.setText(name)
 
+		downloaded = self.infoPanelModel.getDownloaded()
+		self.downloadedLabel.setText(downloaded)
 
+		uploaded = self.infoPanelModel.getUploaded()
+		self.uploadedLabel.setText(uploaded)
+
+
+'''
+The custom painter object for the table to render the progress bar
+object correctly. The idea for this was taken from the qt website
+examples.
+'''
 class ProgressBarTableViewDelegate(QtGui.QStyledItemDelegate):
 
 	def paint(self, painter, option, index):
