@@ -170,8 +170,11 @@ class TorrentInformationModel():
 	def getUploaded(self):
 		return self.torrent.sizeof_t(self.torrent.uploaded)
 
-
-		
+	def getRatio(self):
+		return "%.3f" % (self.torrent.ratio)
+	      
+	def getInfoHash(self):
+		return str(self.torrent.uuid)
 
 
 
@@ -446,6 +449,36 @@ class Torrent():
 		#Priority = 2 : Normal Priority
 		#Priority = 1 : Low Priority
 		#Priority = 0 : Off Priority
+	
+	def _getTorrentLocation(self):
+		#Gets the path to the location of the torrent in the server
+		self.root_dir = self.server.d.directory(self.uuid)
+	
+	def _getIsActive(self):
+		# If the torrent started or stoped
+		# 0 is stopped
+		# 1 is active
+		self.is_active = self.server.d.is_active(self.uuid)
+	
+	def _getIsPrivate(self):
+		# Finds out if the torrent is from a private tracker or not
+		# 0 public
+		# 1 private
+		self.private = self.server.d.is_private(self.uuid)
+	
+	def _getNumberOfFiles(self):
+		# Gets the number of files for this torrent
+		self.numFiles = self.server.d.size_files(self.uuid)
+
+	def _getNumberOfChunks(self):
+		self.numChunks = self.server.d.size_chunks(self.uuid)
+		
+	def _getNumberOfTrackers(self):
+		self.numTrackers = self.server.d.tracker_size(self.uuid)
+	
+	def _getFileName(self, fileIndex):
+		# Get the name of the file in this torrent
+		self.filenames[fileIndex] = self.server.f.get_path(self.uuid, fileIndex)
 
 	def getUUID(self):
 		return uuid
@@ -564,6 +597,14 @@ def startServer(tableModel=None):
 	#Print a test message, the start the manager
 	print('Connected to: ' + server.system.hostname())
 	manager = TorrentManager(tableModel)
+
+def startServerDEBUG():
+	#Initialize the server
+	global server
+	server = xmlrpc.client.ServerProxy(serverURL)
+
+	#Print a test message, the start the manager
+	print('Connected to: ' + server.system.hostname())
 
 '''
 Set the server url in the format that the python library expects it.
